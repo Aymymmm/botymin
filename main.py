@@ -53,4 +53,5 @@ def handle_message(message):
     else:
         bot.send_message(message.chat.id, "أرسل رقمًا يبدأ بـ + أو بدون رموز.")
 
+bot.remove_webhook()
 bot.infinity_polling()
