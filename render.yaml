@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: telegram-bot
+    env: python
+    buildCommand: ""
+    startCommand: bash start.sh
+    plan: free
+    envVars:
+      - key: API_TOKEN
+        value: your_telegram_bot_token
