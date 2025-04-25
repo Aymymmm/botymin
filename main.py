@@ -4,7 +4,7 @@ from bs4 import BeautifulSoup
 import json
 
 API_TOKEN = '7756130100:AAEZAgI4mVZyjV2HulvNtBBZurKhVIDFd-8'
-bot = telebot.TeleBotAPI_TOKEN = '35aee4b59b91dad0fca3831889371f6e,
+bot = telebot.TeleBot API_TOKEN = '35aee4b59b91dad0fca3831889371f6e'
 
 def search_emobiletracker(number):
     try:
