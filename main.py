@@ -44,21 +44,25 @@ def search_freecarrierlookup(number):
     except Exception as e:
         return f"خطأ في freecarrierlookup: {str(e)}"
 
-# دالة لاستخدام الـ API الجديدة
+# دالة لاستخدام API apilayer.net
 def use_new_api(number):
     try:
-        # هنا يتم استخدام الـ API الجديدة
-        url = f"https://api.example.com/v1/lookup?phone={number}&api_key=35aee4b59b91dad0fca3831889371f6e"
+        # استبدال هذا بالرابط الصحيح للـ API
+        API_KEY = '35aee4b59b91dad0fca3831889371f6e'
+        url = f"http://apilayer.net/api/validate?access_key={API_KEY}&number={number}&format=1"
         headers = {"User-Agent": "Mozilla/5.0"}
         res = requests.get(url, headers=headers)
         
         if res.status_code == 200:
             data = res.json()  # استجابة JSON من الـ API
-            return f"النتائج: {data.get('result')}"
+            if data.get('valid'):
+                return f"الرقم {number} صالح.\nالمزود: {data.get('carrier')}\nالنوع: {data.get('type')}"
+            else:
+                return f"الرقم {number} غير صالح."
         else:
-            return "لا توجد نتائج صالحة من الـ API الجديدة."
+            return "حدث خطأ أثناء الاتصال بالـ API."
     except Exception as e:
-        return f"خطأ في استخدام الـ API الجديدة: {str(e)}"
+        return f"خطأ في الاتصال بالـ API: {str(e)}"
 
 # التعامل مع الرسائل في البوت
 @bot.message_handler(func=lambda message: True)
