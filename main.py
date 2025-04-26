@@ -1,87 +1,61 @@
 import telebot
 import requests
-from bs4 import BeautifulSoup
-import json
+import os
 
-# توكن البوت
-API_TOKEN = '7756130100:AAEZAgI4mVZyjV2HulvNtBBZurKhVIDFd-8'
+API_TOKEN = os.getenv("API_TOKEN")
+NUMVERIFY_API = os.getenv("NUMVERIFY_API")
+
 bot = telebot.TeleBot(API_TOKEN)
 
-# دالة للبحث في emobiletracker
-def search_emobiletracker(number):
-    try:
-        url = f"https://www.emobiletracker.com/track/?phone={number}&submit=Track"
-        headers = {"User-Agent": "Mozilla/5.0"}
-        res = requests.get(url, headers=headers)
-        soup = BeautifulSoup(res.text, "html.parser")
-        table = soup.find("table", class_="tracking-table")
-        if table:
-            rows = table.find_all("tr")
-            info = []
-            for row in rows:
-                cols = row.find_all("td")
-                if len(cols) == 2:
-                    key = cols[0].get_text(strip=True)
-                    val = cols[1].get_text(strip=True)
-                    info.append(f"{key}: {val}")
-            return "\n".join(info)
-        else:
-            return "لا توجد بيانات واضحة من emobiletracker."
-    except Exception as e:
-        return f"خطأ في emobiletracker: {str(e)}"
+# تحليل رقم الهاتف باستخدام NumVerify
+def analyze_number(number):
+    url = f"http://apilayer.net/api/validate?access_key={NUMVERIFY_API}&number={number}&format=1"
+    response = requests.get(url)
+    data = response.json()
+    result = ""
 
-# دالة للبحث في freecarrierlookup
-def search_freecarrierlookup(number):
-    try:
-        url = f"https://freecarrierlookup.com/getcarrier.php?phonenumber={number}"
-        headers = {"User-Agent": "Mozilla/5.0"}
-        res = requests.get(url, headers=headers)
-        if res.status_code == 200 and res.text.strip().startswith("{"):
-            data = json.loads(res.text)
-            return f"مزود الخدمة: {data.get('carrier')}\nالنوع: {data.get('type')}"
-        else:
-            return "لا توجد نتائج صالحة من freecarrierlookup."
-    except Exception as e:
-        return f"خطأ في freecarrierlookup: {str(e)}"
+    if data.get("valid"):
+        result += f"الرقم صحيح ✅\n"
+        result += f"الدولة: {data.get('country_name')}\n"
+        result += f"شركة الاتصالات: {data.get('carrier')}\n"
+        result += f"النوع: {'جوال' if data.get('line_type') == 'mobile' else 'أرضي'}\n"
+    else:
+        result += "الرقم غير صحيح أو لا يوجد معلومات."
 
-# دالة لاستخدام API apilayer.net
-def use_new_api(number):
-    try:
-        # استبدال هذا بالرابط الصحيح للـ API
-        API_KEY = '35aee4b59b91dad0fca3831889371f6e'
-        url = f"http://apilayer.net/api/validate?access_key={API_KEY}&number={number}&format=1"
-        headers = {"User-Agent": "Mozilla/5.0"}
-        res = requests.get(url, headers=headers)
-        
-        if res.status_code == 200:
-            data = res.json()  # استجابة JSON من الـ API
-            if data.get('valid'):
-                return f"الرقم {number} صالح.\nالمزود: {data.get('carrier')}\nالنوع: {data.get('type')}"
-            else:
-                return f"الرقم {number} غير صالح."
-        else:
-            return "حدث خطأ أثناء الاتصال بالـ API."
-    except Exception as e:
-        return f"خطأ في الاتصال بالـ API: {str(e)}"
+    return result
 
-# التعامل مع الرسائل في البوت
+# فحص Telegram
+def check_telegram(number):
+    tg_link = f"https://t.me/{number}"
+    return f"Telegram: جرّب فتح الرابط:\n{tg_link}"
+
+# فحص WhatsApp
+def check_whatsapp(number):
+    wa_link = f"https://wa.me/{number.replace('+','')}"
+    return f"WhatsApp: افتح الرابط:\n{wa_link}"
+
+# فحص Facebook
+def check_facebook(number):
+    fb_link = f"https://www.facebook.com/login/identify/?ctx=recover&lwv=110&email={number}"
+    return f"Facebook: تحقق من هنا:\n{fb_link}"
+
+# عند استقبال رقم
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
     number = message.text.strip()
-    if number.startswith("+") or number.isdigit():
-        bot.send_message(message.chat.id, "جاري البحث عن الرقم من عدة مصادر...")
-        
-        # استخدام جميع APIs
-        result_1 = search_emobiletracker(number)
-        result_2 = search_freecarrierlookup(number)
-        result_3 = use_new_api(number)  # استخدام الـ API الجديدة
-        
-        final_result = f"[emobiletracker]\n{result_1}\n\n[freecarrierlookup]\n{result_2}\n\n[API الجديدة]\n{result_3}"
-        
-        bot.send_message(message.chat.id, final_result)
-    else:
-        bot.send_message(message.chat.id, "أرسل رقمًا يبدأ بـ + أو بدون رموز.")
 
-# بدء البوت وتشغيله
+    if not number.startswith("+"):
+        bot.reply_to(message, "أرسل الرقم مع رمز الدولة مثال: +967777777777")
+        return
+
+    info = analyze_number(number)
+    telegram_check = check_telegram(number)
+    whatsapp_check = check_whatsapp(number)
+    facebook_check = check_facebook(number)
+
+    full_report = f"{info}\n\n{telegram_check}\n\n{whatsapp_check}\n\n{facebook_check}"
+    bot.send_message(message.chat.id, full_report)
+
+# لتشغيل البوت
 bot.remove_webhook()
 bot.infinity_polling()
