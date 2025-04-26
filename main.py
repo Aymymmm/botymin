@@ -57,5 +57,5 @@ def handle_message(message):
     bot.send_message(message.chat.id, full_report)
 
 # لتشغيل البوت
-bot.remove_webhook()
-bot.infinity_polling()
+bot.delete_webhook(drop_pending_updates=True)
+bot.infinity_polling(skip_pending=True)
