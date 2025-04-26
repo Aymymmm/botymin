@@ -1,61 +1,59 @@
 import telebot
 import requests
-import os
+import re
 
-API_TOKEN = os.getenv("API_TOKEN")
-NUMVERIFY_API = os.getenv("NUMVERIFY_API")
+# توكن البوت
+API_TOKEN = "7756130100:AAEZAgI4mVZyjV2HulvNtBBZurKhVIDFd-8"
+# مفتاح واجهة API للتحقق من الأرقام
+ACCESS_KEY = "35aee4b59b91dad0fca3831889371f6e"
 
 bot = telebot.TeleBot(API_TOKEN)
 
-# تحليل رقم الهاتف باستخدام NumVerify
-def analyze_number(number):
-    url = f"http://apilayer.net/api/validate?access_key={NUMVERIFY_API}&number={number}&format=1"
-    response = requests.get(url)
-    data = response.json()
-    result = ""
+# دالة تحليل الرقم اليمني
+def analyze_yemen_number(number):
+    try:
+        url = f"http://apilayer.net/api/validate?access_key={ACCESS_KEY}&number={number}&country_code=YE&format=1"
+        response = requests.get(url).json()
 
-    if data.get("valid"):
-        result += f"الرقم صحيح ✅\n"
-        result += f"الدولة: {data.get('country_name')}\n"
-        result += f"شركة الاتصالات: {data.get('carrier')}\n"
-        result += f"النوع: {'جوال' if data.get('line_type') == 'mobile' else 'أرضي'}\n"
-    else:
-        result += "الرقم غير صحيح أو لا يوجد معلومات."
+        if response.get("valid"):
+            report = f"""
+[تقرير استخباراتي خاص - اليمن]
+رقم الهاتف: {response['international_format']}
+الشبكة: {response['carrier']}
+الدولة: {response['country_name']}
+النوع: {"موبايل" if response['line_type'] == "mobile" else response['line_type']}
+رمز الدولة: {response['country_prefix']}
+رمز الشبكة: {number[:5]}
+النتيجة: الرقم صالح ونشط ✅
 
-    return result
+[تحليل خاص]
+- الرقم يعمل حاليًا داخل اليمن.
+- يمكن توسيع التحليل لربطه بـ WhatsApp / Truecaller.
+"""
+        else:
+            report = "[فشل] الرقم غير صالح أو غير متوفر في اليمن."
 
-# فحص Telegram
-def check_telegram(number):
-    tg_link = f"https://t.me/{number}"
-    return f"Telegram: جرّب فتح الرابط:\n{tg_link}"
+    except Exception as e:
+        report = f"[خطأ] فشل في التحليل:\n{str(e)}"
+    
+    return report
 
-# فحص WhatsApp
-def check_whatsapp(number):
-    wa_link = f"https://wa.me/{number.replace('+','')}"
-    return f"WhatsApp: افتح الرابط:\n{wa_link}"
+# بدء البوت
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    bot.send_message(message.chat.id, "مرحبًا بك في نظام تحليل الأرقام اليمني.\nأرسل رقمًا يبدأ بـ +967 لتحليل استخباراتي.")
 
-# فحص Facebook
-def check_facebook(number):
-    fb_link = f"https://www.facebook.com/login/identify/?ctx=recover&lwv=110&email={number}"
-    return f"Facebook: تحقق من هنا:\n{fb_link}"
-
-# عند استقبال رقم
+# استقبال وتحليل الأرقام
 @bot.message_handler(func=lambda message: True)
-def handle_message(message):
-    number = message.text.strip()
+def analyze_number(message):
+    text = message.text.strip()
+    match = re.search(r'\+967\d{7,9}', text)
+    if match:
+        number = match.group()
+        result = analyze_yemen_number(number)
+        bot.send_message(message.chat.id, result)
+    else:
+        bot.send_message(message.chat.id, "يرجى إرسال رقم يمني بصيغة صحيحة، مثال: +9677XXXXXXXX")
 
-    if not number.startswith("+"):
-        bot.reply_to(message, "أرسل الرقم مع رمز الدولة مثال: +967777777777")
-        return
-
-    info = analyze_number(number)
-    telegram_check = check_telegram(number)
-    whatsapp_check = check_whatsapp(number)
-    facebook_check = check_facebook(number)
-
-    full_report = f"{info}\n\n{telegram_check}\n\n{whatsapp_check}\n\n{facebook_check}"
-    bot.send_message(message.chat.id, full_report)
-
-# لتشغيل البوت
-bot.delete_webhook(drop_pending_updates=True)
-bot.infinity_polling(skip_pending=True)
+bot.remove_webhook()
+bot.infinity_polling()
